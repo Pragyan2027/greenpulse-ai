@@ -8,31 +8,50 @@ from forecast import generate_forecast
 from forecast_ai import explain_forecast
 
 from dotenv import load_dotenv
+
 import os
+import shutil
+
+
+# ============================================================
+# ENVIRONMENT VARIABLES
+# ============================================================
 
 load_dotenv()
-import shutil
+
 
 FRONTEND_URL = os.getenv(
     "FRONTEND_URL",
     "http://localhost:5173"
 )
 
+
+print(
+    ">>> FRONTEND_URL:",
+    FRONTEND_URL
+)
+
+
+# ============================================================
+# FASTAPI APP
+# ============================================================
+
 app = FastAPI(
     title="GreenPulse AI API"
 )
 
 
-# ---------------------------
+# ============================================================
 # CORS
-# ---------------------------
+# ============================================================
 
 app.add_middleware(
     CORSMiddleware,
 
     allow_origins=[
-    FRONTEND_URL,
-    "http://127.0.0.1:5173"
+        FRONTEND_URL,
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
     ],
 
     allow_credentials=True,
@@ -43,9 +62,9 @@ app.add_middleware(
 )
 
 
-# ---------------------------
+# ============================================================
 # UPLOAD FOLDER
-# ---------------------------
+# ============================================================
 
 UPLOAD_FOLDER = "uploads"
 
@@ -55,9 +74,9 @@ os.makedirs(
 )
 
 
-# ---------------------------
+# ============================================================
 # HOME
-# ---------------------------
+# ============================================================
 
 @app.get("/")
 def home():
@@ -67,9 +86,9 @@ def home():
     }
 
 
-# ---------------------------
+# ============================================================
 # ANALYZE CSV
-# ---------------------------
+# ============================================================
 
 @app.post("/api/analyze")
 async def analyze_file(
@@ -99,6 +118,7 @@ async def analyze_file(
 
         return results
 
+
     except Exception as e:
 
         print(
@@ -112,20 +132,25 @@ async def analyze_file(
         )
 
 
-# ---------------------------
+# ============================================================
 # GEMINI AI CHAT
-# ---------------------------
+# ============================================================
 
 @app.post("/api/chat")
-async def chat(data: dict):
+async def chat(
+    data: dict
+):
 
     try:
 
-        question = data.get("question")
+        question = data.get(
+            "question"
+        )
 
         analysis_data = data.get(
             "analysis_data"
         )
+
 
         if not question:
 
@@ -134,6 +159,7 @@ async def chat(data: dict):
                 detail="Question is required."
             )
 
+
         if not analysis_data:
 
             raise HTTPException(
@@ -141,18 +167,22 @@ async def chat(data: dict):
                 detail="Energy analysis data is required."
             )
 
+
         answer = ask_greenpulse(
             question,
             analysis_data
         )
 
+
         return {
             "answer": answer
         }
 
+
     except HTTPException:
 
         raise
+
 
     except Exception as e:
 
@@ -167,9 +197,9 @@ async def chat(data: dict):
         )
 
 
-# ---------------------------
+# ============================================================
 # GEMINI AI INSIGHTS
-# ---------------------------
+# ============================================================
 
 @app.post("/api/ai-insights")
 async def ai_insights(
@@ -184,6 +214,7 @@ async def ai_insights(
 
         return insights
 
+
     except Exception as e:
 
         print(
@@ -197,9 +228,9 @@ async def ai_insights(
         )
 
 
-# ---------------------------
+# ============================================================
 # WHAT-IF SIMULATOR
-# ---------------------------
+# ============================================================
 
 @app.post("/api/simulate")
 async def simulate_energy(
@@ -220,12 +251,18 @@ async def simulate_energy(
             "reduction_percent"
         )
 
+
+        # ----------------------------------------
+        # VALIDATION
+        # ----------------------------------------
+
         if not analysis_data:
 
             raise HTTPException(
                 status_code=400,
                 detail="Analysis data is required."
             )
+
 
         if not appliance:
 
@@ -234,6 +271,7 @@ async def simulate_energy(
                 detail="Appliance is required."
             )
 
+
         if reduction_percent is None:
 
             raise HTTPException(
@@ -241,9 +279,11 @@ async def simulate_energy(
                 detail="Reduction percentage is required."
             )
 
+
         reduction_percent = float(
             reduction_percent
         )
+
 
         if (
             reduction_percent < 0
@@ -255,10 +295,16 @@ async def simulate_energy(
                 detail="Reduction must be between 0 and 100."
             )
 
+
+        # ----------------------------------------
+        # APPLIANCE DATA
+        # ----------------------------------------
+
         appliance_usage = analysis_data.get(
             "appliance_usage",
             {}
         )
+
 
         if appliance not in appliance_usage:
 
@@ -267,18 +313,26 @@ async def simulate_energy(
                 detail="Appliance not found."
             )
 
+
         current_appliance_energy = float(
             appliance_usage[appliance]
         )
+
 
         total_energy = float(
             analysis_data["total_energy"]
         )
 
+
+        # ----------------------------------------
+        # CARBON DATA
+        # ----------------------------------------
+
         carbon_footprint = analysis_data.get(
             "carbon_footprint",
             {}
         )
+
 
         emission_factor = (
 
@@ -295,6 +349,11 @@ async def simulate_energy(
             else 0
         )
 
+
+        # ----------------------------------------
+        # CALCULATIONS
+        # ----------------------------------------
+
         energy_saved = (
 
             current_appliance_energy
@@ -302,11 +361,13 @@ async def simulate_energy(
             / 100
         )
 
+
         new_appliance_energy = (
 
             current_appliance_energy
             - energy_saved
         )
+
 
         new_total_energy = (
 
@@ -314,17 +375,24 @@ async def simulate_energy(
             - energy_saved
         )
 
+
         co2_saved = (
 
             energy_saved
             * emission_factor
         )
 
+
         new_co2 = (
 
             new_total_energy
             * emission_factor
         )
+
+
+        # ----------------------------------------
+        # RESPONSE
+        # ----------------------------------------
 
         return {
 
@@ -377,9 +445,11 @@ async def simulate_energy(
                 )
         }
 
+
     except HTTPException:
 
         raise
+
 
     except Exception as e:
 
@@ -394,9 +464,9 @@ async def simulate_energy(
         )
 
 
-# ---------------------------
+# ============================================================
 # ENERGY FORECAST
-# ---------------------------
+# ============================================================
 
 @app.post("/api/forecast")
 async def forecast_energy(
@@ -409,6 +479,7 @@ async def forecast_energy(
             "time_series"
         )
 
+
         if not time_series:
 
             raise HTTPException(
@@ -416,15 +487,19 @@ async def forecast_energy(
                 detail="Time-series data is required."
             )
 
+
         forecast_result = generate_forecast(
             time_series
         )
 
+
         return forecast_result
+
 
     except HTTPException:
 
         raise
+
 
     except Exception as e:
 
@@ -437,8 +512,16 @@ async def forecast_energy(
             status_code=500,
             detail=str(e)
         )
+
+
+# ============================================================
+# FORECAST AI INSIGHT
+# ============================================================
+
 @app.post("/api/forecast-insight")
-async def forecast_insight(data: dict):
+async def forecast_insight(
+    data: dict
+):
 
     try:
 
@@ -454,17 +537,30 @@ async def forecast_insight(data: dict):
             "analysis_data"
         )
 
+
+        # ----------------------------------------
+        # VALIDATION
+        # ----------------------------------------
+
         if not historical_data:
+
             raise HTTPException(
                 status_code=400,
                 detail="Historical data is required."
             )
 
+
         if not forecast_data:
+
             raise HTTPException(
                 status_code=400,
                 detail="Forecast data is required."
             )
+
+
+        # ----------------------------------------
+        # GEMINI FORECAST EXPLANATION
+        # ----------------------------------------
 
         insight = explain_forecast(
             historical_data,
@@ -472,10 +568,14 @@ async def forecast_insight(data: dict):
             analysis_data
         )
 
+
         return insight
 
+
     except HTTPException:
+
         raise
+
 
     except Exception as e:
 
