@@ -145,24 +145,17 @@ def analyze_energy_data(file_path):
     # ANOMALY DETECTION
     # ---------------------------
 
-    mean = df["energy_kwh"].mean()
+    # ---------------------------
+# ANOMALY DETECTION (per-appliance baseline)
+# ---------------------------
 
-    std = df["energy_kwh"].std()
-
-    if std == 0 or pd.isna(std):
-
-        df["z_score"] = 0
-
-    else:
-
-        df["z_score"] = (
-            (df["energy_kwh"] - mean) / std
-        )
+    df["z_score"] = df.groupby("appliance")["energy_kwh"].transform(
+    lambda x: (x - x.mean()) / x.std() if x.std() > 0 else 0
+    )
 
     anomalies = df[
-        np.abs(df["z_score"]) > 2
-    ]
-
+    np.abs(df["z_score"]) > 2
+        ]
     # ---------------------------
     # EFFICIENCY SCORE
     # ---------------------------
